@@ -1,6 +1,13 @@
-﻿################################################################################
+################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
 /Server/publickey.crt
 /Server/private.key
+/.vs
+/Server/bin/Debug/net6.0
+/Server/obj
+/Server/Logs
+/Server/.vs
+Server/certificate.pfx
+Server/Server.csproj.user
