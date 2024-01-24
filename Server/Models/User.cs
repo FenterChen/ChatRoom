@@ -1,44 +1,27 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Server.Services;
 
 namespace Server.Models
 {
-    public enum Role
-    {
-        User = 0,
-        Machine = 1,
-        MainServer = 2,
-        BackupServer = 3,
-    };
     public class User
     {
         public string? Id { get; private set; }
 
-        public Role Role { get; private set; }
         public string? AvailableRoomId { get; private set; }
         public BaseRoom? Room; // 所在房間
         private WebsocketManager? websocketManager;
 
         public bool IsOnline { get => websocketManager?.IsOnline ?? false; }
 
-        public void SetUserId(string id)
+        public User()
         {
-            Id ??= id;
-        }
-
-        public void SetRole(Role role)
-        {
-            Role = role;
-        }
-
-        public void SetAvailableRoomId(string? RoomId)
-        {
-            AvailableRoomId = RoomId;
+            Id = SerialNumberWithTimeAndGuid();
         }
 
         public static string SerialNumberWithTimeAndGuid()
         {
             string timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
-            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+            string guidPart = Guid.NewGuid().ToString("N")[..8].ToUpper();
             return timestamp + "-" + guidPart;
         }
 
