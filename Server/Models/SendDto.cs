@@ -124,13 +124,13 @@ namespace Server.Models
 
     public class Heartbeat
     {
-        public string? CheckString { get; set; }
+        public string CheckString { get; set; } = "Ping";
     }
-    //public class HeartbeatDto
-    //{
-    //    public Heartbeat Data { get; set; } = new();
-    //    public string Type { get; } = "HeartBeat";
-    //}
+    public class HeartbeatDto
+    {
+        public Heartbeat Data { get; set; } = new();
+        public string Type { get; } = "HeartBeat";
+    }
     public class InitData
     {
         public string? Token { get; set; }

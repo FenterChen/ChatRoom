@@ -21,8 +21,8 @@ namespace Server.Services
             ["Room01"] = new SingleRoom("Room01", true),
             ["Room02"] = new SingleRoom("Room02", true),
             ["Room03"] = new SingleRoom("Room03", true),
-            ["Room04"] = new SingleRoom("Room04", true),
-            ["Room05"] = new SingleRoom("Room05", true),
+            ["Room04"] = new MultipleRoom("Room04", true),
+            ["Room05"] = new MultipleRoom("Room05", true),
         };
 
         public User? GetUser(string userId)

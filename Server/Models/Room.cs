@@ -107,8 +107,6 @@ namespace Server.Models
             get { return Users.Count() >= 2; }
         }
 
-        public User? Server;
-
         public SingleRoom(string roomId, bool isPermanent) : base(roomId, isPermanent)
         {
         }
@@ -116,8 +114,6 @@ namespace Server.Models
     public class MultipleRoom : BaseRoom
     {
         override public RoomType RoomType { get; } = RoomType.Multiple;
-
-        public User? Server;
 
         public MultipleRoom(string roomId, bool isPermanent) : base(roomId, isPermanent)
         {

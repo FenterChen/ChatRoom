@@ -11,7 +11,7 @@ namespace Server.Services
     {
         private readonly Serilog.ILogger _serilog = Log.ForContext<HeartbeatEventHandler>();
         private CountdownTimer? _countdownTimer;
-        private Heartbeat? _heartbeat;
+        private HeartbeatDto _heartbeatDto = new();
         private readonly RoomEventHandler _roomEventHandler;
         private Action? _timerEventHandler;
 
@@ -24,11 +24,7 @@ namespace Server.Services
             _serilog.Information("Id:{_id} have heartbeat checking enabled.", user.Id);
             _countdownTimer = new CountdownTimer(TimerFunctionEnum.SocketHeartBeat);
             _countdownTimer.Start();
-            _heartbeat = new()
-            {
-                CheckString = "Ping"
-            };
-            user.Send("HeartBeat", 0, _heartbeat);
+            user.Send(_heartbeatDto);
             _serilog.Verbose("Server send Ping to Id:{_id}.", user.Id);
 
             _countdownTimer.ExpiredTimerEvent += async () =>
@@ -94,11 +90,8 @@ namespace Server.Services
         }
         private void HeartbeatTimerEventHandler(User user)
         {
-            if (_heartbeat != null)
-            {
-                user.Send("HeartBeat", 0, _heartbeat);
-                _serilog.Verbose($"Server send Ping to Id:{user.Id}.");
-            }
+            user.Send(_heartbeatDto);
+            _serilog.Verbose($"Server send Ping to Id:{user.Id}.");
         }
     }
 }

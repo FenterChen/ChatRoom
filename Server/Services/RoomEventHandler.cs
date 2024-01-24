@@ -266,37 +266,6 @@ namespace Server.Services
                 ErrorSendBack(nameof(MessageTypeDto.BroadcastMessage), message);
             }
         }
-        public void SendMessage(string jsonStr)
-        {
-            ReceiveMessage? receiveMessage = JsonConvert.DeserializeObject<ReceiveMessage>(jsonStr);
-            if (receiveMessage != null && receiveMessage.Data.RoomId != null && receiveMessage.Data.RecvId != null && receiveMessage.Data.Message != null && _user != null && _user?.Id != null)
-            {
-                var recvUser = _roomManager.GetUser(receiveMessage.Data.RecvId);
-                if (recvUser != null)
-                {
-                    SendMessageDto sendMessageDto = new()
-                    {
-                        Data = new MessageDto
-                        {
-                            MessageSender = _user.Id,
-                            Message = receiveMessage.Data.Message
-                        }
-                    };
-
-                    recvUser.Send(sendMessageDto);
-                }
-                else
-                {
-                    ErrorSendBack(nameof(MessageTypeDto.Message), $"SendMessage: user does not exist. RecvId={receiveMessage.Data.RecvId}");
-                }
-            }
-            else
-            {
-                string message = $"At least one of the parameters for Id:{_user?.Id}'s RoomId:{receiveMessage?.Data.RoomId},Message:{receiveMessage?.Data.Message},or RecvId:{receiveMessage?.Data.RecvId} provided is Null.";
-                _serilog.Debug(message);
-                ErrorSendBack(nameof(MessageTypeDto.Message), message);
-            }
-        }
         private void LeaveAndTryToCloseRoom()
         {
             if (_user != null && _user.Id != null && _user.Room != null)

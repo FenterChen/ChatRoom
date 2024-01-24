@@ -6,14 +6,6 @@ using System.Text;
 
 namespace Server.Services
 {
-    public class WebSocketMessage<T>
-    {
-        public string Type = "";
-        public int Error;
-        public T? Data;
-    }
-
-
     public class WebsocketHandlerBase
     {
         virtual public async Task Start(WebsocketManager websocketManager)
@@ -45,15 +37,6 @@ namespace Server.Services
         }
 
         public bool IsOnline { get => webSocket?.State == WebSocketState.Open; }
-
-        public async Task Send(string type, int error, object data)
-        {
-            WebSocketMessage<object> webSocketMessage = new();
-            webSocketMessage.Type = type;
-            webSocketMessage.Error = error;
-            webSocketMessage.Data = data;
-            await Send(webSocketMessage);
-        }
 
         public async Task Send(object DataDto)
         {
@@ -131,7 +114,6 @@ namespace Server.Services
                     if (_receiveResult != null && _receiveResult.CloseStatus != null && _receiveResult.CloseStatus.HasValue && webSocket.State != WebSocketState.Closed)
                     {
                         await webSocket.CloseAsync(_receiveResult.CloseStatus.Value, _receiveResult.CloseStatusDescription, CancellationToken.None);
-                        //_serilog.Information($"Id:{_user?.Id} was closed the websocket connection.");
                         break;
                     }
                     else if (webSocket.State == WebSocketState.Closed)

@@ -1,5 +1,7 @@
 using Serilog;
+using Server.Services;
 using Server.Util;
+using SignalingServer.MiddleWare;
 using System.Net;
 //Serilog
 var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
@@ -20,6 +22,7 @@ try
     builder.Host.UseSerilog();
     // Add services to the container.
     builder.Services.AddControllers();
+    builder.Services.AddSingleton<RoomManager>();
     builder.WebHost.ConfigureKestrel((context, options) =>
     {
         //options.Listen(IPAddress.Any, 80);
@@ -38,6 +41,7 @@ try
     };
 
     app.UseWebSockets(webSocketOptions);
+    app.AuthenticationMiddleware();
 
     app.Run();
 

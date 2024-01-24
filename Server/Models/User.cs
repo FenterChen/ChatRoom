@@ -30,11 +30,6 @@ namespace Server.Models
             this.websocketManager = websocketManager;
         }
 
-        public void Send(string type, int error, object data)
-        {
-            websocketManager?.Send(type, error, data);
-        }
-
         public void Send(object DataDto)
         {
             websocketManager?.Send(DataDto);

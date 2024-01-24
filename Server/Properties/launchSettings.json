@@ -1,16 +1,16 @@
-﻿{
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true
+  },
   "profiles": {
     "Server": {
       "commandName": "Project",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "externalUrlConfiguration": true,
-      "dotnetRunMessages": true
+      "dotnetRunMessages": true,
+      "externalUrlConfiguration": true
     }
-  },
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true
   }
 }

@@ -17,6 +17,11 @@ namespace SignalingServer.MiddleWare
             {
 
                 string SecWebSocketProtocol = context.Request.Headers["Sec-WebSocket-Protocol"]!;
+                if (SecWebSocketProtocol == "")
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return;
+                }
                 string[] pathSegments = SecWebSocketProtocol.Split(',');
                 string key = pathSegments[0].Trim();
                 string value = pathSegments[1].Trim();
