@@ -112,9 +112,6 @@ namespace Server.Services
                         case nameof(MessageTypeDto.BroadcastMessage):
                             _roomEventHandler.BroadcastMessage(jsonStr);
                             break;
-                        case nameof(MessageTypeDto.SendMessage):
-                            _roomEventHandler.SendMessage(jsonStr);
-                            break;
                     }
                 }
             }

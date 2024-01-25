@@ -22,10 +22,10 @@ export default defineConfig({
       }
     }
   }
-  // , server: {
-  //   https: {
-  //     key: fs.readFileSync(`${__dirname}/src/assets/cert/key.pem`),
-  //     cert: fs.readFileSync(`${__dirname}/src/assets/cert/cert.pem`),
-  //   },
-  // },
+  , server: {
+    https: {
+      key: fs.readFileSync(`${__dirname}/src/assets/cert/key.pem`),
+      cert: fs.readFileSync(`${__dirname}/src/assets/cert/cert.pem`),
+    },
+  },
 })

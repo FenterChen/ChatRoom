@@ -12,3 +12,4 @@
 Server/certificate.pfx
 Server/Server.csproj.user
 /Server/bin/Release/net6.0
+Server/server.pfx

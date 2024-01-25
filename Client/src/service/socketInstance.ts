@@ -8,8 +8,8 @@ export class SocketInstance {
 
   constructor() {
     this.url = import.meta.env.VITE_WSS_URL;
-    let MachineKey: string[] = ["MachineKey", "kmPm2kGTz72PWzg3"];
-    this.ws = new WebSocket(`${this.url}/ws/`, MachineKey);
+    let UserKey: string[] = ["UserKey", "YYePXAUFQFM4c56f"];
+    this.ws = new WebSocket(`${this.url}/ws/`, UserKey);
     const ws = this.ws;
     const store = useStore();
     ws.onerror = (event) => {

@@ -1,43 +1,97 @@
+import { Ref } from "vue";
+
 export class PeerConnectionInstance {
  remoteUser: string = "";
  role: string | undefined = "";
  peerConnection: RTCPeerConnection | undefined;
+ recvOffer: Boolean = false;
  iceconfig: any;
- constructor(remoteUser: string, iceconfig: any, role?: string) {
+ isLoading: Ref<{
+  valueOf: () => boolean;
+ }>;
+ remoteVideoHTMLVideoElement?: HTMLVideoElement;
+ remoteVideoHTMLCanvasElement?: HTMLCanvasElement;
+ VideoWraps = document.getElementById('RemoteVideos');
+ mediaStream = new MediaStream();
+
+ constructor(remoteUser: string, iceconfig: any, useFirefoxAndNvidia: Boolean, isLoading: Ref<{
+  valueOf: () => boolean;
+ }>, role?: string) {
   this.remoteUser = remoteUser
   this.role = role
   this.iceconfig = iceconfig;
+  this.isLoading = isLoading;
+
+  if (!useFirefoxAndNvidia) {
+   this.useHtmlVideoElement();
+  } else {
+   this.useHtmlCanvasElement();
+  }
   this.init()
  }
 
  private init() {
   const configuration = {
    iceServers: this.iceconfig.iceServers,
-   // encodedInsertableStreams: true
   };
   this.peerConnection = new RTCPeerConnection(configuration);
-  // this.register();
+  this.peerConnection.ontrack = (event) => {
+   this.mediaStream.addTrack(event.track);
+   console.log("ontrack");
+   this.remoteVideoHTMLVideoElement?.play();
+   this.isLoading.value = false;
+  };
  }
- // private register() {
- //  if (this.peerConnection) {
- //   this.peerConnection.onicecandidate = (event) => {
- //    if (!event.candidate || !event.candidate.candidate) return;
- //    // console.log("onicecandidate")
- //    // this.emit("sendCandidate", {
- //    //  Room: this.room,
- //    //  SdpMid: event.candidate.sdpMid || "0",
- //    //  SdpMLineIndex: event.candidate.sdpMLineIndex,
- //    //  Candidate: event.candidate.candidate,
- //    // });
- //   }
 
- //   // this.peerConnection.onnegotiationneeded = () => {
- //   //  
- //   // }
+ private useHtmlVideoElement() {
+  this.remoteVideoHTMLVideoElement = document.createElement('video');
+  this.remoteVideoHTMLVideoElement.srcObject = this.mediaStream;
+  this.remoteVideoHTMLVideoElement.id = this.remoteUser;
+  this.remoteVideoHTMLVideoElement.classList.add(
+   'p-4',
+   'max-h-screen-8rem',
+   'w-full'
+  );
+  this.remoteVideoHTMLVideoElement.autoplay = true;
+  this.VideoWraps?.appendChild(this.remoteVideoHTMLVideoElement);
+ }
+ private useHtmlCanvasElement() {
+  this.remoteVideoHTMLVideoElement = document.createElement('video');
+  this.remoteVideoHTMLVideoElement.srcObject = this.mediaStream;
+  this.remoteVideoHTMLVideoElement.id = this.remoteUser;
+  this.remoteVideoHTMLVideoElement.classList.add(
+   'p-4',
+   'max-h-screen-8rem',
+   'w-full'
+  );
+  this.remoteVideoHTMLVideoElement.autoplay = true;
+  this.remoteVideoHTMLCanvasElement = document.createElement('canvas');
+  this.remoteVideoHTMLCanvasElement.id = this.remoteUser;
+  this.remoteVideoHTMLCanvasElement.classList.add(
+   'p-4',
+   'max-h-screen-8rem',
+   'w-full'
+  );
+  this.VideoWraps?.appendChild(this.remoteVideoHTMLCanvasElement);
 
- //   this.peerConnection.ontrack = (event) => {
+  let ctx = this.remoteVideoHTMLCanvasElement.getContext('2d');
+  const that = this;
+  if (that.remoteVideoHTMLVideoElement) {
+   that.remoteVideoHTMLVideoElement.onplay = () => {
+    var $this = this.remoteVideoHTMLVideoElement!;
+    (function loop() {
+     if (!$this!.paused && !$this!.ended) {
+      if (that.remoteVideoHTMLCanvasElement) {
+       that.remoteVideoHTMLCanvasElement.width = that.remoteVideoHTMLVideoElement!.videoWidth;
+       that.remoteVideoHTMLCanvasElement.height = that.remoteVideoHTMLVideoElement!.videoHeight;
+      }
+      ctx!.drawImage($this!, 0, 0);
+      setTimeout(loop, 1000 / 60); // drawing at 60fps
+     }
+    })();
+   }
+  };
+ }
 
- //   }
- //  }
- // }
+
 }

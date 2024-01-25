@@ -28,7 +28,7 @@ try
         //options.Listen(IPAddress.Any, 80);
         options.Listen(IPAddress.Any, 443, listenOptions =>
         {
-            listenOptions.UseHttps("./certificate.pfx", "Daniel");
+            listenOptions.UseHttps("./server.pfx", "Daniel");
         });
     });
 

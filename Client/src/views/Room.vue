@@ -8,7 +8,7 @@ import { PeerConnectionInstance } from '../service/peerConnection';
 import { Payload, EventType } from '../service/model/eventType';
 import Loading from 'vue-loading-overlay';
 import 'vue-loading-overlay/dist/css/index.css';
-import HRSVideo from '../assets/HRS.mp4';
+import RabbitVideo from '../assets/h264_720p_60fps_2.5M.mp4';
 
 interface VideoElement extends HTMLVideoElement {
   captureStream(frameRequestRate?: number): MediaStream;
@@ -19,37 +19,17 @@ const socketInstance: SocketInstance | undefined = store.state.socketInstance;
 const pcMap = new Map<string, PeerConnectionInstance>();
 const route = useRoute();
 const user = store.state.user;
-const remoteVideo = ref<HTMLVideoElement>();
 const videoSource = ref<VideoElement>();
-const remoteCanvas = ref<HTMLCanvasElement>();
 const useCanvas = ref<Boolean>(true);
-const dataChannel = ref<RTCDataChannel>();
 const iceServerList = ref();
 const isLoading = ref<Boolean>(false);
 const useVideo = ref<Boolean>(false);
-const timer = ref();
-const mouseX = ref();
-const mouseY = ref();
-const VideoWraps = ref<HTMLElement | null>();
 const videoStream = ref<MediaStream>();
-const mediaStream = new MediaStream();
 
 const socketEvents = computed(() => {
   return store.state.socketEvents;
 });
-onMounted(() => {
-  VideoWraps.value = document.getElementById('RemoteVideos');
-  remoteVideo.value = document.createElement('video');
-  remoteVideo.value.srcObject = mediaStream;
-  remoteVideo.value.autoplay = true;
-  if (!store.state.useFirefoxAndNvidia) {
-    //HtmlVideoElement and does not use the h.264 codec on firefox
-    useHtmlVideoElement();
-  } else {
-    //HtmlCanvasElement
-    useHtmlCanvasElement();
-  }
-});
+onMounted(() => {});
 
 watch(
   socketEvents.value,
@@ -62,18 +42,32 @@ watch(
             store.commit('m_removeSocketEvent', ev.Id);
             break;
           case 'Offer':
+            let oldId;
             while (iceServerList.value == null) {
               await new Promise((resolve) => setTimeout(resolve, 16));
             }
-            if (!pcMap.has(ev.Data.ReqId)) {
+            store.commit('m_removeSocketEvent', ev.Id);
+            if (!pcMap.has(ev.Data.ReqId) && oldId != ev.Id) {
               const pc = new PeerConnectionInstance(
                 ev.Data.ReqId,
                 iceServerList.value,
+                store.state.useFirefoxAndNvidia,
+                isLoading,
                 route.query.room as string
               );
+              console.log(1);
               pcMap.set(ev.Data.ReqId, pc);
               await receiveOffer(pc, ev.Data);
+            } else if (
+              pcMap.has(ev.Data.ReqId) &&
+              !pcMap.get(ev.Data.ReqId)!.recvOffer &&
+              oldId != ev.Id
+            ) {
+              console.log(2);
+              pcMap.get(ev.Data.ReqId)!.recvOffer = true;
+              await receiveOffer(pcMap.get(ev.Data.ReqId)!, ev.Data);
             }
+            oldId = ev.Id;
             store.commit('m_removeSocketEvent', ev.Id);
             break;
           case 'Candidate':
@@ -94,13 +88,7 @@ watch(
                 await new Promise((resolve) => setTimeout(resolve, 16));
               }
               if (!pcMap.has(ev.Data.NewUser)) {
-                const pc = new PeerConnectionInstance(
-                  ev.Data.NewUser,
-                  iceServerList.value,
-                  route.query.room as string
-                );
-                pcMap.set(ev.Data.NewUser, pc);
-                await createOffer(pc, ev.Data);
+                await createOffer(ev.Data.NewUser);
               }
             }
             store.commit('m_removeSocketEvent', ev.Id);
@@ -140,15 +128,6 @@ if (socketInstance) {
 
 async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
   isLoading.value = true;
-  if (remoteCanvas.value) {
-    VideoWraps.value?.appendChild(remoteCanvas.value);
-  } else {
-    if (remoteVideo.value) VideoWraps.value?.appendChild(remoteVideo.value);
-  }
-  pc.peerConnection!.ontrack = (event) => {
-    mediaStream.addTrack(event.track);
-    remoteVideo.value?.play();
-  };
   pc.peerConnection!.onicecandidate = (event) => {
     if (!event.candidate || !event.candidate.candidate) return;
     const payload: Payload = {
@@ -163,32 +142,13 @@ async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
     };
     socketInstance!.wsSend(payload);
   };
-  // const newDa = Data.Desc.Sdp.replace(
-  //   'a=fmtp:127 implementation_name=Internal',
-  //   'a=fmtp:127 max-fs=12288;max-fr=60;implementation_name=Internal'
-  // );
 
   await pc.peerConnection?.setRemoteDescription(
     new RTCSessionDescription({
       sdp: Data.Desc.Sdp,
-      // sdp: newDa,
       type: Data.Desc.Type,
     })
   );
-  //Firefox has a bug(lagging) in using h.264, so delete the h.264 codec.
-
-  //Firefox isn't support setCodecPreferences.
-  // const filterReceiveCodecs = RTCRtpReceiver.getCapabilities(
-  //   'video'
-  // )?.codecs.filter((codec) => {
-  //   return codec.mimeType != 'video/H264';
-  // });
-
-  // pc.peerConnection?.getTransceivers().forEach((transceiver) => {
-  //   if (filterReceiveCodecs && transceiver.receiver.track.kind == 'video') {
-  //     transceiver.setCodecPreferences(filterReceiveCodecs);
-  //   }
-  // });
 
   let answerDesc = await pc.peerConnection?.createAnswer();
   if (answerDesc?.sdp && store.state.useFirefoxAndNvidia && !useCanvas.value) {
@@ -205,60 +165,57 @@ async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
     },
   };
   socketInstance!.wsSend(payload);
-  pc.peerConnection!.ondatachannel = (ev) => {
-    ev.channel.addEventListener('open', () => {
-      dataChannel.value = ev.channel;
-    });
-  };
 }
 
-async function createOffer(pc: PeerConnectionInstance, Data: any) {
-  pc.peerConnection!.onicecandidate = (event) => {
-    if (!event.candidate || !event.candidate.candidate) return;
-    const payload: Payload = {
-      Type: EventType.sendCandidate,
-      Data: {
-        RoomId: route.query.room,
-        SdpMid: event.candidate.sdpMid || '0',
-        SdpMLineIndex: event.candidate.sdpMLineIndex,
-        RecvId: Data.NewUser,
-        Candidate: event.candidate.candidate,
-      },
+async function createOffer(pcId: string) {
+  if (!pcMap.has(pcId)) {
+    const pc = new PeerConnectionInstance(
+      pcId,
+      iceServerList.value,
+      store.state.useFirefoxAndNvidia,
+      isLoading,
+      route.query.room as string
+    );
+    pcMap.set(pcId, pc);
+  }
+  if (pcMap.has(pcId)) {
+    if (pcMap.get(pcId)!.peerConnection?.signalingState == 'have-remote-offer')
+      return;
+    pcMap.get(pcId)!.peerConnection!.onicecandidate = (event) => {
+      if (!event.candidate || !event.candidate.candidate) return;
+      const payload: Payload = {
+        Type: EventType.sendCandidate,
+        Data: {
+          RoomId: route.query.room,
+          SdpMid: event.candidate.sdpMid || '0',
+          SdpMLineIndex: event.candidate.sdpMLineIndex,
+          RecvId: pcMap.get(pcId)!.remoteUser,
+          Candidate: event.candidate.candidate,
+        },
+      };
+      socketInstance!.wsSend(payload);
     };
-    socketInstance!.wsSend(payload);
-  };
-  pc.peerConnection!.onnegotiationneeded = async function () {
-    const offerDesc = await pc.peerConnection!.createOffer();
-    await pc.peerConnection!.setLocalDescription(offerDesc);
-    const payload: Payload = {
-      Type: EventType.offer,
-      Data: {
-        RoomId: route.query.room,
-        RecvId: Data.NewUser,
-        Desc: offerDesc,
-      },
+    pcMap.get(pcId)!.peerConnection!.onnegotiationneeded = async function () {
+      const offerDesc = await pcMap.get(pcId)!.peerConnection!.createOffer();
+      await pcMap.get(pcId)!.peerConnection!.setLocalDescription(offerDesc);
+      const payload: Payload = {
+        Type: EventType.offer,
+        Data: {
+          RoomId: route.query.room,
+          RecvId: pcMap.get(pcId)!.remoteUser,
+          Desc: offerDesc,
+        },
+      };
+      socketInstance!.wsSend(payload);
     };
-    socketInstance!.wsSend(payload);
-  };
-  videoStream.value!.getTracks().forEach((track) => {
-    pc.peerConnection!.addTrack(track, videoStream.value!);
-  });
+    videoStream.value!.getTracks().forEach((track) => {
+      pcMap.get(pcId)!.peerConnection!.addTrack(track, videoStream.value!);
+    });
+  }
 }
 
 async function receiveAnswer(pc: PeerConnectionInstance, Data: any) {
-  // const removeVP8Sdp = removeCodec(Data.Desc.Sdp, 'VP8');
-  // const adjustSdp = removeVP8Sdp.split('\r\n').map((str: string, _i: any) => {
-  //   return /^a=fmtp:\d*/.test(str)
-  //     ? str +
-  //         ';x-google-max-bitrate=2500;x-google-min-bitrate=2500;x-google-start-bitrate=2500'
-  //     : /^a=mid:(1|video)/.test(str)
-  //     ? str + '\r\nb=AS:2500'
-  //     : str;
-  // });
-  // const Sdp = adjustSdp.join('\r\n');
-
   const Desc = <RTCSessionDescriptionInit>{
-    // sdp: Sdp,
     sdp: Data.Desc.Sdp,
     type: Data.Desc.Type,
   };
@@ -266,11 +223,17 @@ async function receiveAnswer(pc: PeerConnectionInstance, Data: any) {
 }
 
 async function playVideo() {
+  // let offerToMember: [] = [];
+  // store.state.Room.UserList.forEach((element) => {
+  //   if (!pcMap.has(element) && element != store.state.user.id) {
+  //     offerToMember.push(element);
+  //   }
+  // });
   useVideo.value = !useVideo.value;
   if (useVideo.value) {
     videoSource.value = <VideoElement>document.createElement('video');
     videoSource.value.autoplay;
-    videoSource.value.src = HRSVideo;
+    videoSource.value.src = RabbitVideo;
     videoSource.value.loop = true;
     let canvas = document.createElement('canvas');
     let ctx = canvas.getContext('2d');
@@ -293,6 +256,9 @@ async function playVideo() {
       videoStream.value!.addTrack(
         videoSource.value!.captureStream().getAudioTracks()[0]
       );
+      pcMap.forEach(async (PeerConnection) => {
+        await createOffer(PeerConnection.remoteUser);
+      });
     };
   }
 }
@@ -300,17 +266,6 @@ async function playVideo() {
 function userLeaveFromRoom(pc: PeerConnectionInstance, Data: any) {
   pc.peerConnection?.close();
   pcMap.delete(Data.LeaveUser);
-}
-
-function trownCoin(
-  offsetWidth: number,
-  offsetHeight: number,
-  x: number,
-  y: number
-) {
-  if (dataChannel.value != null) {
-    dataChannel.value.send(`position,${x},${y},${offsetWidth},${offsetHeight}`);
-  }
 }
 
 function removeCodec(orgsdp: string, codec: string) {
@@ -354,106 +309,6 @@ function removeCodec(orgsdp: string, codec: string) {
     return internalFunc(modsdp);
   };
   return internalFunc(orgsdp);
-}
-function useHtmlVideoElement() {
-  if (remoteVideo.value) {
-    remoteVideo.value.id = 'RemoteVideo';
-    remoteVideo.value.classList.add(
-      'cursor-pointer',
-      'max-h-screen-8rem',
-      'w-full'
-    );
-    remoteVideo.value!.onplay = () => {
-      isLoading.value = false;
-    };
-
-    remoteVideo.value.addEventListener('click', function (event) {
-      trownCoin(
-        remoteVideo.value!.offsetWidth,
-        remoteVideo.value!.offsetHeight,
-        event.offsetX,
-        remoteVideo.value!.offsetHeight - event.offsetY
-      );
-    });
-    remoteVideo.value.addEventListener('mousedown', () => {
-      timer.value = setInterval(
-        () =>
-          trownCoin(
-            remoteVideo.value!.offsetWidth,
-            remoteVideo.value!.offsetHeight,
-            mouseX.value,
-            remoteVideo.value!.offsetHeight - mouseY.value
-          ),
-        200
-      );
-    });
-
-    remoteVideo.value.addEventListener('mousemove', (event) => {
-      if (timer) {
-        mouseX.value = event.offsetX;
-        mouseY.value = event.offsetY;
-      }
-    });
-    remoteVideo.value.addEventListener('mouseup', (event) => {
-      if (timer.value != null) clearTimeout(timer.value);
-    });
-  }
-}
-function useHtmlCanvasElement() {
-  if (remoteVideo.value) {
-    remoteCanvas.value = document.createElement('canvas');
-    let ctx = remoteCanvas.value.getContext('2d');
-    remoteVideo.value.addEventListener('loadedmetadata', function () {
-      remoteCanvas.value!.width = remoteVideo.value!.videoWidth;
-      remoteCanvas.value!.height = remoteVideo.value!.videoHeight;
-    });
-    remoteCanvas.value.classList.add(
-      'cursor-pointer',
-      'max-h-screen-8rem',
-      'w-full'
-    );
-    remoteVideo.value!.onplay = () => {
-      var $this = remoteVideo.value!;
-      (function loop() {
-        if (!$this!.paused && !$this!.ended) {
-          ctx!.drawImage($this!, 0, 0);
-          setTimeout(loop, 1000 / 60); // drawing at 60fps
-        }
-      })();
-      isLoading.value = false;
-    };
-
-    remoteCanvas.value.addEventListener('click', function (event) {
-      trownCoin(
-        remoteCanvas.value!.offsetWidth,
-        remoteCanvas.value!.offsetHeight,
-        event.offsetX,
-        remoteCanvas.value!.offsetHeight - event.offsetY
-      );
-    });
-    remoteCanvas.value.addEventListener('mousedown', () => {
-      timer.value = setInterval(
-        () =>
-          trownCoin(
-            remoteCanvas.value!.offsetWidth,
-            remoteCanvas.value!.offsetHeight,
-            mouseX.value,
-            remoteCanvas.value!.offsetHeight - mouseY.value
-          ),
-        200
-      );
-    });
-
-    remoteCanvas.value.addEventListener('mousemove', (event) => {
-      if (timer) {
-        mouseX.value = event.offsetX;
-        mouseY.value = event.offsetY;
-      }
-    });
-    remoteCanvas.value.addEventListener('mouseup', (event) => {
-      if (timer.value != null) clearTimeout(timer.value);
-    });
-  }
 }
 function backToHome() {
   router.push({ name: 'Lobby' });
@@ -510,7 +365,7 @@ onUnmounted(() => {
         <div class="max-w-one-three w-full flex justify-center items-center">
           <div>
             <p class="text-xs sm:text-base text-zinc-100 p-2 truncate">
-              Machine:{{ route.query.room }}
+              Room:{{ route.query.room }}
             </p>
           </div>
         </div>
@@ -536,7 +391,7 @@ onUnmounted(() => {
         </div>
         <div
           id="RemoteVideos"
-          class="flex justify-center flex-col max-h-screen-5rem"
+          class="flex justify-center flex-row max-h-screen-5rem"
         >
           <loading
             v-model:active="isLoading"

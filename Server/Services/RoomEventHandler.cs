@@ -211,7 +211,8 @@ namespace Server.Services
             ReceiveGetIceServerlist? receiveGetIceServerlist = JsonConvert.DeserializeObject<ReceiveGetIceServerlist>(jsonStr);
             if (receiveGetIceServerlist != null && receiveGetIceServerlist.Data.RoomId != null && _user?.Id != null)
             {
-                using HttpResponseMessage response = await httpClient.GetAsync($"{Environment.GetEnvironmentVariable("ICE_SERVER_URL")}iceconfig?u={_user.Id}");
+                //using HttpResponseMessage response = await httpClient.GetAsync($"http://iceserver:3486/iceconfig?u={_user.Id}");
+                using HttpResponseMessage response = await httpClient.GetAsync($"http://localhost:3486/iceconfig?u={_user.Id}");
                 response.EnsureSuccessStatusCode();
                 string responseBody = await response.Content.ReadAsStringAsync();
                 IceServerList? iceServerList = JsonConvert.DeserializeObject<IceServerList>(responseBody, new JsonSerializerSettings

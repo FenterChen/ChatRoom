@@ -102,7 +102,7 @@ namespace Server.Models
     public class IceServers
     {
         [JsonProperty("urls")]
-        public List<string>? Urls { get; set; }
+        public string? Urls { get; set; }
         [JsonProperty("username")]
         public string? Username { get; set; }
         [JsonProperty("credential")]
