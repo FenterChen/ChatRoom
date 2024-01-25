@@ -1,12 +1,14 @@
 import { Payload } from './model/eventType';
 import { useStore } from '../store';
-import uuid4 from "uuid4";
+import router from '../router';
+import EventBus from './EventBus';
 
-export class SocketInstance {
+export class SocketInstance extends EventBus {
   private ws: WebSocket | null = null;
   private url: string;
 
   constructor() {
+    super();
     this.url = import.meta.env.VITE_WSS_URL;
     let UserKey: string[] = ["UserKey", "YYePXAUFQFM4c56f"];
     this.ws = new WebSocket(`${this.url}/ws/`, UserKey);
@@ -17,7 +19,7 @@ export class SocketInstance {
     }
     ws.onopen = () => {
       console.log("connected %s", this.url);
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         let Type: string, Data: any;
         try {
           const _parseData = JSON.parse(event.data);
@@ -26,9 +28,9 @@ export class SocketInstance {
           console.log(error);
           return;
         }
-
         switch (Type) {
           case 'UpdateLobby':
+            this.dispatch(Type, Data);
             const Lobby = Data.filter((res: any) => res.RoomId == "Lobby")
             store.commit('m_lobby', Lobby);
             const others = Data.filter((res: any) => res.RoomId != "Lobby")
@@ -47,33 +49,20 @@ export class SocketInstance {
             store.commit('m_othersRoom', others);
             break;
           case 'UpdateRoom':
+            this.dispatch(Type, Data);
             store.state.Room = Data;
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'UpdateRoom', Data: Data });
-            break;
-          case 'NewUser':
-            store.state.Room = Data;
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'NewUser', Data: Data });
-            break;
-          case 'UserLeaveFromRoom':
-            store.state.Room.UserList = store.state.Room.UserList.filter((res: any) => res != Data.LeaveUser);
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'UserLeaveFromRoom', Data: Data });
-            break;
-          case 'Offer':
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'Offer', Data: Data });
-            break;
-          case 'Answer':
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'Answer', Data: Data });
-            break;
-          case 'Candidate':
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'Candidate', Data: Data });
-            break;
-          case 'IceServerList':
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'IceServerList', Data: Data });
             break;
           case 'InitData':
-            store.commit('m_addSocketEvent', { Id: uuid4(), Type: 'InitData', Data: Data });
+            this.dispatch(Type, Data);
+            break;
+          default:
+            while (!store.state.roomIsSubscribe) {
+              await new Promise((resolve) => setTimeout(resolve, 16));
+            }
+            this.dispatch(Type, Data);
             break;
         }
+
       }
     }
 

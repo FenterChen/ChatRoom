@@ -1,20 +1,14 @@
 import { InjectionKey } from "vue";
 import { createStore, useStore as baseUseStore, Store } from "vuex";
 import { SocketInstance } from "../service/socketInstance";
-import { uniqueNamesGenerator, countries, adjectives, names } from 'unique-names-generator';
 export interface State {
   socketInstance: SocketInstance | undefined;
-  socketEvents: Map<string, SocketEvent>;
   useFirefoxAndNvidia: Boolean;
+  roomIsSubscribe: Boolean;
   user: User;
   Lobby: Array<Lobby>;
   othersRoom: Array<Lobby>;
   Room: RoomObj;
-}
-interface SocketEvent {
-  Id: string,
-  Type: string,
-  Data: any,
 }
 interface Lobby {
   RoomId: string,
@@ -61,32 +55,22 @@ export const key: InjectionKey<Store<State>> = Symbol();
 export const store = createStore<State>({
   state: {
     socketInstance: undefined,
-    socketEvents: new Map,
     user: {
       id: null
     },
     useFirefoxAndNvidia: false,
+    roomIsSubscribe: false,
     Lobby: [],
     othersRoom: [],
     Room: { RoomId: "", NewUser: "", UserList: [] },
   },
   mutations: {
     m_createWebSocket(state) {
-      // if (state.user.id == "") {
-      //   state.user.id = uniqueNamesGenerator({
-      //     dictionaries: [countries, adjectives, names]
-      //   });
-      // }
       if (state.socketInstance == null) {
         state.socketInstance = new SocketInstance();
       }
     },
-    m_addSocketEvent(state, data: SocketEvent) {
-      state.socketEvents.set(data.Id, data);
-    },
-    m_removeSocketEvent(state, id) {
-      state.socketEvents.delete(id);
-    },
+
     m_lobby(state, data) {
       state.Lobby = data;
     },

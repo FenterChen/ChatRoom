@@ -10,11 +10,22 @@ import Loading from 'vue-loading-overlay';
 import 'vue-loading-overlay/dist/css/index.css';
 import RabbitVideo from '../assets/h264_720p_60fps_2.5M.mp4';
 
-interface VideoElement extends HTMLVideoElement {
-  captureStream(frameRequestRate?: number): MediaStream;
-}
+
 
 const store = useStore();
+const subscribeEvents = {
+  IceServerList: IceServerListFunc,
+  Offer: OfferFunc,
+  Answer: AnswerFunc,
+  Candidate: CandidateFunc,
+  NewUser: NewUserFunc,
+  UserLeaveFromRoom: UserLeaveFromRoomFunc
+};
+Object.entries(subscribeEvents).forEach(([key, func]) => {
+  store.state.socketInstance?.subscribe(key, func);
+});
+store.state.roomIsSubscribe = true;
+
 const socketInstance: SocketInstance | undefined = store.state.socketInstance;
 const pcMap = new Map<string, PeerConnectionInstance>();
 const route = useRoute();
@@ -26,91 +37,9 @@ const isLoading = ref<Boolean>(false);
 const useVideo = ref<Boolean>(false);
 const videoStream = ref<MediaStream>();
 
-const socketEvents = computed(() => {
-  return store.state.socketEvents;
-});
-onMounted(() => {});
-
-watch(
-  socketEvents.value,
-  (newVal) => {
-    if (newVal != undefined) {
-      newVal.forEach(async (ev) => {
-        switch (ev.Type) {
-          case 'IceServerList':
-            iceServerList.value = ev.Data;
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-          case 'Offer':
-            let oldId;
-            while (iceServerList.value == null) {
-              await new Promise((resolve) => setTimeout(resolve, 16));
-            }
-            store.commit('m_removeSocketEvent', ev.Id);
-            if (!pcMap.has(ev.Data.ReqId) && oldId != ev.Id) {
-              const pc = new PeerConnectionInstance(
-                ev.Data.ReqId,
-                iceServerList.value,
-                store.state.useFirefoxAndNvidia,
-                isLoading,
-                route.query.room as string
-              );
-              console.log(1);
-              pcMap.set(ev.Data.ReqId, pc);
-              await receiveOffer(pc, ev.Data);
-            } else if (
-              pcMap.has(ev.Data.ReqId) &&
-              !pcMap.get(ev.Data.ReqId)!.recvOffer &&
-              oldId != ev.Id
-            ) {
-              console.log(2);
-              pcMap.get(ev.Data.ReqId)!.recvOffer = true;
-              await receiveOffer(pcMap.get(ev.Data.ReqId)!, ev.Data);
-            }
-            oldId = ev.Id;
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-          case 'Candidate':
-            while (!pcMap.has(ev.Data.ReqId)) {
-              await new Promise((resolve) => setTimeout(resolve, 16));
-            }
-            const existPc = pcMap.get(ev.Data.ReqId);
-            existPc?.peerConnection?.addIceCandidate({
-              sdpMid: ev.Data.SdpMid,
-              sdpMLineIndex: ev.Data.SdpMLineIndex,
-              candidate: ev.Data.Candidate,
-            });
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-          case 'NewUser':
-            if (useVideo.value) {
-              while (iceServerList.value == null) {
-                await new Promise((resolve) => setTimeout(resolve, 16));
-              }
-              if (!pcMap.has(ev.Data.NewUser)) {
-                await createOffer(ev.Data.NewUser);
-              }
-            }
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-          case 'Answer':
-            if (pcMap.has(ev.Data.ReqId)) {
-              await receiveAnswer(pcMap.get(ev.Data.ReqId)!, ev.Data);
-            }
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-          case 'UserLeaveFromRoom':
-            if (pcMap.has(ev.Data.LeaveUser)) {
-              userLeaveFromRoom(pcMap.get(ev.Data.LeaveUser)!, ev.Data);
-            }
-            store.commit('m_removeSocketEvent', ev.Id);
-            break;
-        }
-      });
-    }
-  },
-  { immediate: true }
-);
+interface VideoElement extends HTMLVideoElement {
+  captureStream(frameRequestRate?: number): MediaStream;
+}
 
 if (socketInstance) {
   const payload: Payload = {
@@ -125,8 +54,72 @@ if (socketInstance) {
     name: 'Lobby',
   });
 }
+function IceServerListFunc(Data: any) {
+  console.log("IceServerListFunc")
+  iceServerList.value = Data;
+}
+async function OfferFunc(Data: any) {
+  console.log("OfferFunc")
+  while (iceServerList.value == null) {
+    await new Promise((resolve) => setTimeout(resolve, 16));
+  }
+  if (!pcMap.has(Data.ReqId)) {
+    const pc = new PeerConnectionInstance(
+      Data.ReqId,
+      iceServerList.value,
+      store.state.useFirefoxAndNvidia,
+      isLoading,
+      route.query.room as string
+    );
+    pcMap.set(Data.ReqId, pc);
+    await receiveOffer(pc, Data);
+  } else if (
+    pcMap.has(Data.ReqId)
+  ) {
+    await receiveOffer(pcMap.get(Data.ReqId)!, Data);
+  }
+}
+async function AnswerFunc(Data: any) {
+  console.log("AnswerFunc")
+  while (iceServerList.value == null) {
+    await new Promise((resolve) => setTimeout(resolve, 16));
+  }
+  if (pcMap.has(Data.ReqId)) {
+    await receiveAnswer(pcMap.get(Data.ReqId)!, Data);
+  }
+}
+async function CandidateFunc(Data: any) {
+  console.log("CandidateFunc")
+  while (iceServerList.value == null) {
+    await new Promise((resolve) => setTimeout(resolve, 16));
+  }
+  const existPc = pcMap.get(Data.ReqId);
+  existPc?.peerConnection?.addIceCandidate({
+    sdpMid: Data.SdpMid,
+    sdpMLineIndex: Data.SdpMLineIndex,
+    candidate: Data.Candidate,
+  });
+}
+async function NewUserFunc(Data: any) {
+  console.log("NewUserFunc")
+  if (useVideo.value) {
+    while (iceServerList.value == null) {
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    if (!pcMap.has(Data.NewUser)) {
+      await createOffer(Data.NewUser);
+    }
+  }
+}
+function UserLeaveFromRoomFunc(Data: any) {
+  console.log("UserLeaveFromRoomFunc")
+  if (pcMap.has(Data.LeaveUser)) {
+    userLeaveFromRoom(pcMap.get(Data.LeaveUser)!, Data);
+  }
+}
 
 async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
+  console.log("receiveOffer");
   isLoading.value = true;
   pc.peerConnection!.onicecandidate = (event) => {
     if (!event.candidate || !event.candidate.candidate) return;
@@ -168,6 +161,7 @@ async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
 }
 
 async function createOffer(pcId: string) {
+  console.log("createOffer");
   if (!pcMap.has(pcId)) {
     const pc = new PeerConnectionInstance(
       pcId,
@@ -223,12 +217,6 @@ async function receiveAnswer(pc: PeerConnectionInstance, Data: any) {
 }
 
 async function playVideo() {
-  // let offerToMember: [] = [];
-  // store.state.Room.UserList.forEach((element) => {
-  //   if (!pcMap.has(element) && element != store.state.user.id) {
-  //     offerToMember.push(element);
-  //   }
-  // });
   useVideo.value = !useVideo.value;
   if (useVideo.value) {
     videoSource.value = <VideoElement>document.createElement('video');
@@ -264,7 +252,7 @@ async function playVideo() {
 }
 
 function userLeaveFromRoom(pc: PeerConnectionInstance, Data: any) {
-  pc.peerConnection?.close();
+  pc.close();
   pcMap.delete(Data.LeaveUser);
 }
 
@@ -315,50 +303,31 @@ function backToHome() {
 }
 
 onUnmounted(() => {
-  var element = document.getElementById('RemoteVideo');
-  if (element) {
-    element.parentNode?.removeChild(element);
-  }
-  pcMap.forEach((res) => {
-    res.peerConnection?.close();
+  Object.entries(subscribeEvents).forEach(([key, func]) => {
+    store.state.socketInstance?.unSubscribe(key, func);
   });
-  pcMap.clear();
+  pcMap.forEach((pc) => {
+    pc.peerConnection?.close();
+  });
   videoSource.value?.pause();
   videoSource.value = undefined;
   pcMap.clear();
 });
 </script>
 <template>
-  <div
-    class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen"
-  >
+  <div class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen">
     <div
-      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header"
-    >
+      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header">
       <header class="flex p-3 max-w-8xl m-auto max-h-header">
-        <div
-          class="max-w-one-three w-full flex md:flex-column text-center items-center"
-        >
+        <div class="max-w-one-three w-full flex md:flex-column text-center items-center">
           <div class="flex w-full justify-start items-center">
-            <img
-              src="@/assets/account_circle.svg"
-              class="max-w-one-three"
-              alt="userImage"
-            />
-            <p
-              class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate"
-            >
+            <img src="@/assets/account_circle.svg" class="max-w-one-three" alt="userImage" />
+            <p class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate">
               {{ user.id }}
             </p>
-            <button
-              @click="playVideo"
-              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full"
-            >
-              <img
-                src="@/assets/play_arrow.svg"
-                class="cursor-pointer"
-                alt="userImage"
-              />
+            <button @click="playVideo"
+              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full">
+              <img src="@/assets/play_arrow.svg" class="cursor-pointer" alt="userImage" />
             </button>
           </div>
         </div>
@@ -370,34 +339,20 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="max-w-one-three w-full flex justify-end items-center">
-          <button
-            @click="backToHome"
-            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white"
-          >
+          <button @click="backToHome"
+            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white">
             Home
           </button>
         </div>
       </header>
     </div>
-    <div
-      class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex items-center"
-    >
+    <div class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex items-center">
       <div class="text-2xl m-auto">
-        <div
-          id="LocalVideos"
-          class="flex justify-center flex-col max-h-screen-5rem"
-        >
+        <div id="LocalVideos" class="flex justify-center flex-col max-h-screen-5rem">
           <!-- <p class="text-center mr-2">Local videos</p> -->
         </div>
-        <div
-          id="RemoteVideos"
-          class="flex justify-center flex-row max-h-screen-5rem"
-        >
-          <loading
-            v-model:active="isLoading"
-            :can-cancel="false"
-            :is-full-page="false"
-          />
+        <div id="RemoteVideos" class="flex justify-center flex-row max-h-screen-5rem">
+          <loading v-model:active="isLoading" :can-cancel="false" :is-full-page="false" />
           <!-- <p class="text-center mr-2">Remote videos</p> -->
         </div>
       </div>

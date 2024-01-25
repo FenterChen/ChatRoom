@@ -3,12 +3,16 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { useStore } from '../store';
 import { Payload, EventType } from '../service/model/eventType';
 import router from '../router';
-
 const store = useStore();
 const roomList = ref();
 const destinationRoom = ref();
 const isLoading = ref(true);
+store.state.roomIsSubscribe = false;
 
+const subscribeEvents = {
+  InitData: InitDataFunc,
+  UpdateRoom: UpdateRoomFunc,
+};
 function onCancel() {
   console.log('User cancelled the loader.');
 }
@@ -19,51 +23,43 @@ const computedRoomList = computed(() => {
   });
   return filteredRooms;
 });
-const socketEvents = computed(() => {
-  return store.state.socketEvents;
-});
 watch(
-  computedRoomList,
+  store.state.othersRoom,
   (newVal) => {
     roomList.value = newVal;
   },
   { immediate: true }
 );
 
-watch(
-  socketEvents.value,
-  (newVal) => {
-    if (newVal != undefined) {
-      newVal.forEach((ev) => {
-        if (ev.Type == 'UpdateRoom') {
-          if (ev.Data.RoomId == destinationRoom.value) {
-            store.commit('m_removeSocketEvent', ev.Id);
-            router.push({
-              name: 'Room',
-              query: { room: destinationRoom.value },
-            });
-          }
-        } else if (ev.Type == 'InitData') {
-          store.state.user.id = ev.Data.Id;
-          store.commit('m_removeSocketEvent', ev.Id);
-          onOpen();
-        }
-      });
-    }
-  },
-  { immediate: true }
-);
-
 onMounted(() => {
   if (store.state.socketInstance && store.state.user.id != null) {
+    Object.entries(subscribeEvents).forEach(([key, func]) => {
+      store.state.socketInstance!.subscribe(key, func);
+    });
     joinLobby();
     if (checkBrowser() && checkNvidia()) {
       store.state.useFirefoxAndNvidia = true;
     }
   } else {
     store.commit('m_createWebSocket');
+    Object.entries(subscribeEvents).forEach(([key, func]) => {
+      store.state.socketInstance?.subscribe(key, func);
+    });
   }
 });
+
+function InitDataFunc(Data: any) {
+  store.state.user.id = Data.Id;
+  onOpen();
+}
+function UpdateRoomFunc(Data: any) {
+  if (Data.RoomId == destinationRoom.value) {
+    router.push({
+      name: 'Room',
+      query: { room: destinationRoom.value },
+    });
+  }
+}
 
 function onOpen() {
   joinLobby();
@@ -118,17 +114,14 @@ function checkNvidia() {
         return false;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 </script>
 
 <template>
-  <div
-    class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen"
-  >
+  <div class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen">
     <div
-      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header"
-    >
+      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header">
       <header class="flex p-3 max-w-8xl m-auto">
         <div class="basis-1/3 sm:w-24 flex items-center">
           <img src="@/assets/account_circle.svg" alt="userImage" />
@@ -140,45 +133,24 @@ function checkNvidia() {
         </div>
       </header>
     </div>
-    <loading
-      v-model:active="isLoading"
-      :can-cancel="true"
-      :on-cancel="onCancel"
-      :is-full-page="false"
-    />
-    <div
-      class="py-20 max-w-8xl m-auto px-3 text-2xl"
-      v-if="roomList && store.state.Lobby"
-    >
+    <loading v-model:active="isLoading" :can-cancel="true" :on-cancel="onCancel" :is-full-page="false" />
+    <div class="py-20 max-w-8xl m-auto px-3 text-2xl" v-if="roomList && store.state.Lobby">
       <ul class="flex flex-wrap justify-center p-2">
-        <li
-          class="min-h-full w-full bg-slate-300 rounded px-2 py-1 mb-2"
-          v-if="store.state.Lobby[0]"
-        >
+        <li class="min-h-full w-full bg-slate-300 rounded px-2 py-1 mb-2" v-if="store.state.Lobby[0]">
           <p class="text-base font-bold underline">
             {{ store.state.Lobby[0].RoomId }}
           </p>
-          <p
-            class="font-thin text-sm inline"
-            v-for="(userList, index) in store.state.Lobby[0].UserList"
-            :key="index"
-          >
+          <p class="font-thin text-sm inline" v-for="(userList, index) in store.state.Lobby[0].UserList" :key="index">
             {{ index + 1 }}.{{ userList }}&nbsp;
           </p>
         </li>
         <div class="w-full grid md:grid-cols-5 sm:grid-cols-2 gap-2">
-          <li
-            v-for="room in computedRoomList"
-            :key="room.RoomId"
-            :class="{
-              'cursor-pointer': !room.IsFull,
-              'bg-slate-300': !room.IsFull,
-              'bg-red-900': room.IsFull,
-              'bg-white': room.UserList.length == 0,
-            }"
-            @click="joinRoom(room.RoomId)"
-            class="rounded px-2 py-1"
-          >
+          <li v-for="room in computedRoomList" :key="room.RoomId" :class="{
+            'cursor-pointer': !room.IsFull,
+            'bg-slate-300': !room.IsFull,
+            'bg-red-900': room.IsFull,
+            'bg-white': room.UserList.length == 0,
+          }" @click="joinRoom(room.RoomId)" class="rounded px-2 py-1">
             <div class="items-stretch">
               <p class="text-sm">
                 RoomId:
