@@ -15,6 +15,7 @@ export class PeerConnectionInstance {
  remoteWrap: HTMLDivElement = document.createElement('div');
  VideoWraps = document.getElementById('RemoteVideos');
  mediaStream = new MediaStream();
+ mediaStreamId: string = "";
 
  constructor(remoteUser: string, iceconfig: any, useFirefoxAndNvidia: Boolean, isLoading: Ref<{
   valueOf: () => boolean;
@@ -38,9 +39,14 @@ export class PeerConnectionInstance {
   };
   this.peerConnection = new RTCPeerConnection(configuration);
   this.peerConnection.ontrack = (event) => {
-   this.mediaStream.getTracks().forEach((track) => {
-    this.mediaStream.removeTrack(track);
-   })
+   if (this.mediaStreamId != event.streams[0].id) {
+    this.mediaStreamId = event.streams[0].id
+    if (this.mediaStream.getTracks()) {
+     this.mediaStream.getTracks().forEach((track) => {
+      this.mediaStream.removeTrack(track);
+     })
+    }
+   }
    this.mediaStream.addTrack(event.track);
    this.isOntrack = true;
    this.remoteVideoHTMLVideoElement?.play();

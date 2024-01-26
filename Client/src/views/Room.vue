@@ -344,16 +344,16 @@ onUnmounted(() => {
     class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen"
   >
     <div
-      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header"
+      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum h-header"
     >
-      <header class="flex p-3 max-w-8xl m-auto max-h-header">
+      <header class="flex p-3 max-w-8xl m-auto h-header">
         <div
           class="max-w-one-three w-full flex md:flex-column text-center items-center"
         >
           <div class="flex w-full justify-start items-center">
             <img src="@/assets/account_circle.svg" class="max-w-one-three" />
             <p
-              class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate"
+              class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate md:max-w-full"
             >
               {{ user.id }}
             </p>

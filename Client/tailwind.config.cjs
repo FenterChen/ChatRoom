@@ -24,6 +24,7 @@ module.exports = {
         "md-height": "488px",
         "sm-height": "420px",
         "phone-height": "290px",
+        'header': "74px"
       },
       maxHeight: {
         'screen-5rem': `calc(100vh - 5rem)`,
