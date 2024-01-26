@@ -390,12 +390,12 @@ onUnmounted(() => {
     </div>
     <div class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex">
       <div class="text-2xl mx-auto w-full">
-        <div id="LocalVideo" class="z-50 absolute top-0 left-0 md:w-250 md:h-250 w-100 h-100">
+        <div id="LocalVideo" class="z-50 fixed top-0 left-0 md:w-250 md:h-250 w-100 h-100">
         </div>
-        <div id="RemoteVideos" class="flex justify-center flex-row max-h-screen-5rem flex-wrap">
+        <div id="RemoteVideos" class="flex justify-center flex-row flex-wrap">
           <loading v-model:active="isLoading" :can-cancel="false" :is-full-page="false" />
         </div>
-        <div id="MessageWrap" class="absolute z-50 left-0 bottom-0 w-full flex justify-start">
+        <div id="MessageWrap" class="fixed z-50 left-0 bottom-0 w-full flex justify-start">
           <div class="rounded-md max-w-one-two bg-slate-600 p-3">
             <div id="Message" class="flex flex-col text-sm text-yellow-900">
               <div v-for="message in messageArr" class="my-1 rounded-md inline bg-white p-2">

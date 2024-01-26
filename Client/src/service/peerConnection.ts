@@ -60,10 +60,10 @@ export class PeerConnectionInstance {
     this.remoteVideoHTMLVideoElement.srcObject = this.mediaStream;
     this.remoteVideoHTMLVideoElement.width = 500;
     this.remoteVideoHTMLVideoElement.height = 500;
+    this.remoteVideoHTMLVideoElement.style.cssText = 'height:90%';
     this.remoteVideoHTMLVideoElement.id = this.remoteUser;
     const p = document.createElement('p');
     p.textContent = this.remoteUser;
-    // p.style.cssText = 'position: absolute; top: 5%; left: 5%;';
     p.classList.add(
       'text-white',
       'text-sm',
@@ -71,11 +71,14 @@ export class PeerConnectionInstance {
     )
     this.remoteWrap.classList.add(
       'm-4',
-      'relative',
       'border-8',
       'border-slate-400',
-      'rounded-md'
+      'rounded-md',
+      'flex',
+      'flex-col',
+      'justify-center'
     );
+    this.remoteWrap.style.cssText = 'width:500px;height:500px';
     this.remoteVideoHTMLVideoElement.autoplay = true;
     this.remoteWrap.appendChild(this.remoteVideoHTMLVideoElement);
     this.remoteWrap.appendChild(p);
@@ -98,12 +101,15 @@ export class PeerConnectionInstance {
       'text-center'
     )
     this.remoteWrap.classList.add(
-      'relative',
       'm-4',
       'border-8',
       'border-slate-400',
-      'rounded-md'
+      'rounded-md',
+      'flex',
+      'flex-col',
+      'justify-center'
     );
+    this.remoteWrap.style.cssText = 'width:500px;height:500px';
     this.remoteWrap.appendChild(this.remoteVideoHTMLCanvasElement);
     this.remoteWrap.appendChild(p);
 
