@@ -39,6 +39,7 @@ const useCanvas = ref<Boolean>(true);
 const iceServerList = ref();
 const isLoading = ref<Boolean>(false);
 const videoStream = ref<MediaStream>();
+const localvideo = ref();
 const isPush = ref<Boolean>(false);
 const pushIcon = ref('/src/assets/play_arrow.svg');
 const inputText = ref();
@@ -221,6 +222,18 @@ async function Camera() {
     .getUserMedia(constraints)
     .then((stream) => {
       videoStream.value = stream;
+      localvideo.value = document.createElement('video');
+      localvideo.value.srcObject = videoStream.value;
+      localvideo.value.classList.add(
+        'rounded-full',
+        'aspect-square',
+        'border-8',
+        'bg-black',
+        'border-slate-600'
+      )
+      localvideo.value.autoplay = true;
+      const localVideoWrap = document.getElementById('LocalVideo');
+      localVideoWrap?.appendChild(localvideo.value);
     })
     .catch((error) => {
       alert("Browser doesn't support or there is some errors." + error);
@@ -253,6 +266,8 @@ async function pushOrNot() {
     videoStream.value?.getTracks().forEach((track) => {
       track.stop();
     });
+    const localVideoWrap = document.getElementById('LocalVideo');
+    localVideoWrap?.removeChild(localvideo.value);
   }
 }
 
@@ -340,27 +355,18 @@ onUnmounted(() => {
 });
 </script>
 <template>
-  <div
-    class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen"
-  >
+  <div class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen">
     <div
-      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum h-header"
-    >
+      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-40 border-b-2 border-platinum h-header">
       <header class="flex p-3 max-w-8xl m-auto h-header">
-        <div
-          class="max-w-one-three w-full flex md:flex-column text-center items-center"
-        >
+        <div class="max-w-one-three w-full flex md:flex-column text-center items-center">
           <div class="flex w-full justify-start items-center">
             <img src="@/assets/account_circle.svg" class="max-w-one-three" />
-            <p
-              class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate md:max-w-full"
-            >
+            <p class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate md:max-w-full">
               {{ user.id }}
             </p>
-            <button
-              @click="pushOrNot"
-              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full"
-            >
+            <button @click="pushOrNot"
+              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full">
               <img :src="pushIcon" class="cursor-pointer" alt="userImage" />
             </button>
           </div>
@@ -373,59 +379,34 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="max-w-one-three w-full flex justify-end items-center">
-          <button
-            @click="backToHome"
-            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white"
-          >
+          <button @click="backToHome"
+            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white">
             Home
           </button>
         </div>
       </header>
     </div>
-    <div
-      class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex"
-    >
+    <div class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex">
       <div class="text-2xl mx-auto w-full">
-        <!-- <div
-          id="LocalVideos"
-          class="flex justify-center flex-col max-h-screen-5rem"
-        > -->
-        <!-- <p class="text-center mr-2">Local videos</p> -->
-        <!-- </div> -->
-        <div
-          id="RemoteVideos"
-          class="flex justify-center flex-row max-h-screen-5rem flex-wrap"
-        >
-          <loading
-            v-model:active="isLoading"
-            :can-cancel="false"
-            :is-full-page="false"
-          />
-          <!-- <p class="text-center mr-2">Remote videos</p> -->
+        <div id="LocalVideo" class="z-50 absolute top-0 left-0 md:w-250 md:h-250 w-100 h-100">
         </div>
-        <div id="MessageWrap" class="w-full flex justify-center">
+        <div id="RemoteVideos" class="flex justify-center flex-row max-h-screen-5rem flex-wrap">
+          <loading v-model:active="isLoading" :can-cancel="false" :is-full-page="false" />
+        </div>
+        <div id="MessageWrap" class="absolute z-50 left-0 bottom-0 w-full flex justify-start">
           <div class="rounded-md max-w-one-two bg-slate-600 p-3">
             <div id="Message" class="flex flex-col text-sm text-yellow-900">
-              <div
-                v-for="message in messageArr"
-                class="my-1 rounded-md inline bg-white p-2"
-              >
+              <div v-for="message in messageArr" class="my-1 rounded-md inline bg-white p-2">
                 <p>
-                  <span>{{ message.MessageSender }}: </span
-                  >{{ message.Message }}
+                  <span>{{ message.MessageSender }}: </span>{{ message.Message }}
                 </p>
               </div>
             </div>
             <div class="bg-slate-400 h-1 my-2"></div>
             <div class="flex justify-center">
-              <input
-                class="max-w-one-two md:max-w-full rounded-full text-base px-2 my-1 mx-1"
-                v-model="inputText"
-              />
-              <button
-                @click="send"
-                class="bg-gray-500 hover:bg-gray-700 focus:outline-none focus:ring focus:ring-gray-300 active:bg-gray-700 px-3 py-2 leading-5 text-sm rounded-full font-semibold text-white"
-              >
+              <input class="max-w-one-two md:max-w-full rounded-full text-base px-2 my-1 mx-1" v-model="inputText" />
+              <button @click="send"
+                class="bg-gray-500 hover:bg-gray-700 focus:outline-none focus:ring focus:ring-gray-300 active:bg-gray-700 px-3 py-2 leading-5 text-sm rounded-full font-semibold text-white">
                 Send
               </button>
             </div>

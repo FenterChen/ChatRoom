@@ -17,6 +17,8 @@ module.exports = {
       },
       width: {
         "3/50": "6%",
+        '250': "250px",
+        '100': "100px",
       },
       height: {
         "xl-height": "790px",
@@ -24,7 +26,9 @@ module.exports = {
         "md-height": "488px",
         "sm-height": "420px",
         "phone-height": "290px",
-        'header': "74px"
+        'header': "74px",
+        '250': "250px",
+        '100': "100px",
       },
       maxHeight: {
         'screen-5rem': `calc(100vh - 5rem)`,
