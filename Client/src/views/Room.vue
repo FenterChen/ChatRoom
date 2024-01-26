@@ -2,15 +2,12 @@
 import { useRoute } from 'vue-router';
 import router from '../router';
 import { useStore } from '../store';
-import { ref, onUnmounted, onMounted, watch, computed } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { SocketInstance } from '../service/socketInstance';
 import { PeerConnectionInstance } from '../service/peerConnection';
 import { Payload, EventType } from '../service/model/eventType';
 import Loading from 'vue-loading-overlay';
 import 'vue-loading-overlay/dist/css/index.css';
-import RabbitVideo from '../assets/h264_720p_60fps_2.5M.mp4';
-
-
 
 const store = useStore();
 const subscribeEvents = {
@@ -19,27 +16,34 @@ const subscribeEvents = {
   Answer: AnswerFunc,
   Candidate: CandidateFunc,
   NewUser: NewUserFunc,
-  UserLeaveFromRoom: UserLeaveFromRoomFunc
+  UserLeaveFromRoom: UserLeaveFromRoomFunc,
+  BroadcastMessage: BroadcastMessageFunc,
 };
 Object.entries(subscribeEvents).forEach(([key, func]) => {
   store.state.socketInstance?.subscribe(key, func);
 });
 store.state.roomIsSubscribe = true;
-
+const constraints = {
+  audio: true,
+  video: {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  },
+};
 const socketInstance: SocketInstance | undefined = store.state.socketInstance;
 const pcMap = new Map<string, PeerConnectionInstance>();
 const route = useRoute();
+const newUser = ref();
 const user = store.state.user;
-const videoSource = ref<VideoElement>();
 const useCanvas = ref<Boolean>(true);
 const iceServerList = ref();
 const isLoading = ref<Boolean>(false);
-const useVideo = ref<Boolean>(false);
 const videoStream = ref<MediaStream>();
-
-interface VideoElement extends HTMLVideoElement {
-  captureStream(frameRequestRate?: number): MediaStream;
-}
+const isPush = ref<Boolean>(false);
+const pushIcon = ref('/src/assets/play_arrow.svg');
+const inputText = ref();
+type message = { MessageSender: string; Message: string };
+const messageArr = ref<Array<message>>([]);
 
 if (socketInstance) {
   const payload: Payload = {
@@ -55,11 +59,9 @@ if (socketInstance) {
   });
 }
 function IceServerListFunc(Data: any) {
-  console.log("IceServerListFunc")
   iceServerList.value = Data;
 }
 async function OfferFunc(Data: any) {
-  console.log("OfferFunc")
   while (iceServerList.value == null) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
@@ -68,19 +70,15 @@ async function OfferFunc(Data: any) {
       Data.ReqId,
       iceServerList.value,
       store.state.useFirefoxAndNvidia,
-      isLoading,
-      route.query.room as string
+      isLoading
     );
     pcMap.set(Data.ReqId, pc);
     await receiveOffer(pc, Data);
-  } else if (
-    pcMap.has(Data.ReqId)
-  ) {
+  } else if (pcMap.has(Data.ReqId)) {
     await receiveOffer(pcMap.get(Data.ReqId)!, Data);
   }
 }
 async function AnswerFunc(Data: any) {
-  console.log("AnswerFunc")
   while (iceServerList.value == null) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
@@ -89,7 +87,6 @@ async function AnswerFunc(Data: any) {
   }
 }
 async function CandidateFunc(Data: any) {
-  console.log("CandidateFunc")
   while (iceServerList.value == null) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
@@ -101,26 +98,30 @@ async function CandidateFunc(Data: any) {
   });
 }
 async function NewUserFunc(Data: any) {
-  console.log("NewUserFunc")
-  if (useVideo.value) {
-    while (iceServerList.value == null) {
-      await new Promise((resolve) => setTimeout(resolve, 16));
-    }
-    if (!pcMap.has(Data.NewUser)) {
-      await createOffer(Data.NewUser);
-    }
+  newUser.value = Data;
+  while (iceServerList.value == null) {
+    await new Promise((resolve) => setTimeout(resolve, 16));
+  }
+  if (!pcMap.has(Data.NewUser) && isPush.value) {
+    await createOffer(Data.NewUser);
+  }
+}
+function BroadcastMessageFunc(Data: any) {
+  messageArr.value.push({
+    MessageSender: Data.MessageSender as string,
+    Message: Data.Message as string,
+  });
+  if (messageArr.value.length >= 10) {
+    messageArr.value.splice(0, 1);
   }
 }
 function UserLeaveFromRoomFunc(Data: any) {
-  console.log("UserLeaveFromRoomFunc")
   if (pcMap.has(Data.LeaveUser)) {
     userLeaveFromRoom(pcMap.get(Data.LeaveUser)!, Data);
   }
 }
 
 async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
-  console.log("receiveOffer");
-  isLoading.value = true;
   pc.peerConnection!.onicecandidate = (event) => {
     if (!event.candidate || !event.candidate.candidate) return;
     const payload: Payload = {
@@ -161,21 +162,19 @@ async function receiveOffer(pc: PeerConnectionInstance, Data: any) {
 }
 
 async function createOffer(pcId: string) {
-  console.log("createOffer");
   if (!pcMap.has(pcId)) {
     const pc = new PeerConnectionInstance(
       pcId,
       iceServerList.value,
       store.state.useFirefoxAndNvidia,
-      isLoading,
-      route.query.room as string
+      isLoading
     );
     pcMap.set(pcId, pc);
   }
   if (pcMap.has(pcId)) {
-    if (pcMap.get(pcId)!.peerConnection?.signalingState == 'have-remote-offer')
-      return;
-    pcMap.get(pcId)!.peerConnection!.onicecandidate = (event) => {
+    const pc = pcMap.get(pcId);
+    if (pc!.peerConnection?.signalingState == 'have-remote-offer') return;
+    pc!.peerConnection!.onicecandidate = (event) => {
       if (!event.candidate || !event.candidate.candidate) return;
       const payload: Payload = {
         Type: EventType.sendCandidate,
@@ -183,15 +182,16 @@ async function createOffer(pcId: string) {
           RoomId: route.query.room,
           SdpMid: event.candidate.sdpMid || '0',
           SdpMLineIndex: event.candidate.sdpMLineIndex,
-          RecvId: pcMap.get(pcId)!.remoteUser,
+          RecvId: pc!.remoteUser,
           Candidate: event.candidate.candidate,
         },
       };
       socketInstance!.wsSend(payload);
     };
-    pcMap.get(pcId)!.peerConnection!.onnegotiationneeded = async function () {
-      const offerDesc = await pcMap.get(pcId)!.peerConnection!.createOffer();
-      await pcMap.get(pcId)!.peerConnection!.setLocalDescription(offerDesc);
+    pc!.peerConnection!.onnegotiationneeded = async function () {
+      const offerDesc = await pc!.peerConnection!.createOffer();
+      pc!.isOffer = true;
+      await pc!.peerConnection!.setLocalDescription(offerDesc);
       const payload: Payload = {
         Type: EventType.offer,
         Data: {
@@ -203,7 +203,7 @@ async function createOffer(pcId: string) {
       socketInstance!.wsSend(payload);
     };
     videoStream.value!.getTracks().forEach((track) => {
-      pcMap.get(pcId)!.peerConnection!.addTrack(track, videoStream.value!);
+      pc!.peerConnection!.addTrack(track, videoStream.value!);
     });
   }
 }
@@ -216,44 +216,68 @@ async function receiveAnswer(pc: PeerConnectionInstance, Data: any) {
   pc.peerConnection?.setRemoteDescription(Desc);
 }
 
-async function playVideo() {
-  useVideo.value = !useVideo.value;
-  if (useVideo.value) {
-    videoSource.value = <VideoElement>document.createElement('video');
-    videoSource.value.autoplay;
-    videoSource.value.src = RabbitVideo;
-    videoSource.value.loop = true;
-    let canvas = document.createElement('canvas');
-    let ctx = canvas.getContext('2d');
-    videoSource.value!.addEventListener('loadedmetadata', function () {
-      canvas.width = videoSource.value!.videoWidth;
-      canvas.height = videoSource.value!.videoHeight;
+async function Camera() {
+  return navigator.mediaDevices
+    .getUserMedia(constraints)
+    .then((stream) => {
+      videoStream.value = stream;
+    })
+    .catch((error) => {
+      alert("Browser doesn't support or there is some errors." + error);
     });
-    videoSource.value.oncanplay = () => {
-      videoSource.value?.play();
+}
 
-      var $this = videoSource.value; //cache
-      (function loop() {
-        if (!$this!.paused && !$this!.ended) {
-          ctx!.drawImage($this!, 0, 0);
-          setTimeout(loop, 1000 / 60); // drawing at 60fps
+async function pushOrNot() {
+  isPush.value = !isPush.value;
+  if (isPush.value) {
+    pushIcon.value = '/src/assets/close.svg';
+  } else {
+    pushIcon.value = '/src/assets/play_arrow.svg';
+  }
+  if (isPush.value) {
+    await Camera();
+    if (newUser.value != null) {
+      newUser.value.UserList.forEach(async (remote: string) => {
+        if (remote != user.id) {
+          await createOffer(remote);
         }
-      })();
-      videoStream.value = new MediaStream();
-      videoStream.value!.addTrack(canvas.captureStream(60).getVideoTracks()[0]);
-      videoStream.value!.addTrack(
-        videoSource.value!.captureStream().getAudioTracks()[0]
-      );
-      pcMap.forEach(async (PeerConnection) => {
-        await createOffer(PeerConnection.remoteUser);
       });
-    };
+    } else {
+      store.state.Room.UserList.forEach(async (remote: string) => {
+        if (remote != user.id) {
+          await createOffer(remote);
+        }
+      });
+    }
+  } else {
+    videoStream.value?.getTracks().forEach((track) => {
+      track.stop();
+    });
   }
 }
 
 function userLeaveFromRoom(pc: PeerConnectionInstance, Data: any) {
   pc.close();
   pcMap.delete(Data.LeaveUser);
+}
+
+function send() {
+  const payload: Payload = {
+    Type: EventType.broadcastMessage,
+    Data: {
+      RoomId: route.query.room,
+      Message: inputText.value,
+    },
+  };
+  socketInstance!.wsSend(payload);
+  messageArr.value.push({
+    MessageSender: 'me',
+    Message: inputText.value,
+  });
+  if (messageArr.value.length >= 10) {
+    messageArr.value.splice(0, 1);
+  }
+  inputText.value = '';
 }
 
 function removeCodec(orgsdp: string, codec: string) {
@@ -307,27 +331,37 @@ onUnmounted(() => {
     store.state.socketInstance?.unSubscribe(key, func);
   });
   pcMap.forEach((pc) => {
-    pc.peerConnection?.close();
+    pc.close();
   });
-  videoSource.value?.pause();
-  videoSource.value = undefined;
+  videoStream.value?.getTracks().forEach((track) => {
+    track.stop();
+  });
   pcMap.clear();
 });
 </script>
 <template>
-  <div class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen">
+  <div
+    class="bg-gradient-to-b from-gray-400 via-gray-800 to-black w-full min-h-screen"
+  >
     <div
-      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header">
+      class="bg-gradient-to-t from-blue-200 to-gray-800 opacity-90 fixed w-full z-50 border-b-2 border-platinum max-h-header"
+    >
       <header class="flex p-3 max-w-8xl m-auto max-h-header">
-        <div class="max-w-one-three w-full flex md:flex-column text-center items-center">
+        <div
+          class="max-w-one-three w-full flex md:flex-column text-center items-center"
+        >
           <div class="flex w-full justify-start items-center">
-            <img src="@/assets/account_circle.svg" class="max-w-one-three" alt="userImage" />
-            <p class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate">
+            <img src="@/assets/account_circle.svg" class="max-w-one-three" />
+            <p
+              class="text-zinc-100 px-1 text-xs sm:text-base max-w-one-three sm:max-w-one-two truncate"
+            >
               {{ user.id }}
             </p>
-            <button @click="playVideo"
-              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full">
-              <img src="@/assets/play_arrow.svg" class="cursor-pointer" alt="userImage" />
+            <button
+              @click="pushOrNot"
+              class="bg-red-500 max-w-one-three hover:bg-red-700 focus:outline-none focus:ring focus:ring-red-300 sm:text-sm active:bg-red-700 p-2 rounded-full"
+            >
+              <img :src="pushIcon" class="cursor-pointer" alt="userImage" />
             </button>
           </div>
         </div>
@@ -339,21 +373,63 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="max-w-one-three w-full flex justify-end items-center">
-          <button @click="backToHome"
-            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white">
+          <button
+            @click="backToHome"
+            class="bg-sky-500 hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 active:bg-sky-700 px-5 py-2 text-xs leading-5 sm:text-base rounded-full font-semibold text-white"
+          >
             Home
           </button>
         </div>
       </header>
     </div>
-    <div class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex items-center">
-      <div class="text-2xl m-auto">
-        <div id="LocalVideos" class="flex justify-center flex-col max-h-screen-5rem">
-          <!-- <p class="text-center mr-2">Local videos</p> -->
-        </div>
-        <div id="RemoteVideos" class="flex justify-center flex-row max-h-screen-5rem">
-          <loading v-model:active="isLoading" :can-cancel="false" :is-full-page="false" />
+    <div
+      class="box-border pt-20 max-w-8xl m-auto px-3 text-2xl min-h-screen flex"
+    >
+      <div class="text-2xl mx-auto w-full">
+        <!-- <div
+          id="LocalVideos"
+          class="flex justify-center flex-col max-h-screen-5rem"
+        > -->
+        <!-- <p class="text-center mr-2">Local videos</p> -->
+        <!-- </div> -->
+        <div
+          id="RemoteVideos"
+          class="flex justify-center flex-row max-h-screen-5rem flex-wrap"
+        >
+          <loading
+            v-model:active="isLoading"
+            :can-cancel="false"
+            :is-full-page="false"
+          />
           <!-- <p class="text-center mr-2">Remote videos</p> -->
+        </div>
+        <div id="MessageWrap" class="w-full flex justify-center">
+          <div class="rounded-md max-w-one-two bg-slate-600 p-3">
+            <div id="Message" class="flex flex-col text-sm text-yellow-900">
+              <div
+                v-for="message in messageArr"
+                class="my-1 rounded-md inline bg-white p-2"
+              >
+                <p>
+                  <span>{{ message.MessageSender }}: </span
+                  >{{ message.Message }}
+                </p>
+              </div>
+            </div>
+            <div class="bg-slate-400 h-1 my-2"></div>
+            <div class="flex justify-center">
+              <input
+                class="max-w-one-two md:max-w-full rounded-full text-base px-2 my-1 mx-1"
+                v-model="inputText"
+              />
+              <button
+                @click="send"
+                class="bg-gray-500 hover:bg-gray-700 focus:outline-none focus:ring focus:ring-gray-300 active:bg-gray-700 px-3 py-2 leading-5 text-sm rounded-full font-semibold text-white"
+              >
+                Send
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

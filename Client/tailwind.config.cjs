@@ -12,7 +12,8 @@ module.exports = {
       maxWidth: {
         "8xl": "1320px",
         'one-three': `calc(100%/3)`,
-        'one-two': `calc(100%/2)`
+        'one-two': `calc(100%/2)`,
+        'full': '100%'
       },
       width: {
         "3/50": "6%",
@@ -27,7 +28,8 @@ module.exports = {
       maxHeight: {
         'screen-5rem': `calc(100vh - 5rem)`,
         'screen-8rem': `calc(100vh - 8rem)`,
-        'header': "74px"
+        'header': "74px",
+        '1/2': '33%'
       },
       screens: {
         xs: { min: "400px", max: "767px" },
@@ -38,6 +40,7 @@ module.exports = {
       },
       colors: {
         platinum: "rgb(229, 229, 229)",
+        transparent: "rgb(100,116,139,0.6);"
       },
     },
   },

@@ -8,5 +8,6 @@ export enum EventType {
  offer = "Offer",
  answer = "Answer",
  sendCandidate = "SendCandidate",
- getIceServerlist = "GetIceServerlist"
+ getIceServerlist = "GetIceServerlist",
+ broadcastMessage = "BroadcastMessage"
 }
