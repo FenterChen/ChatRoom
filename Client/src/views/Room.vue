@@ -8,6 +8,8 @@ import { PeerConnectionInstance } from '../service/peerConnection';
 import { Payload, EventType } from '../service/model/eventType';
 import Loading from 'vue-loading-overlay';
 import 'vue-loading-overlay/dist/css/index.css';
+import closeIcon from '@/assets/close.svg';
+import playArrowIcon from '@/assets/play_arrow.svg';
 
 const store = useStore();
 const subscribeEvents = {
@@ -41,7 +43,7 @@ const isLoading = ref<Boolean>(false);
 const videoStream = ref<MediaStream>();
 const localvideo = ref();
 const isPush = ref<Boolean>(false);
-const pushIcon = ref('/src/assets/play_arrow.svg');
+const pushIcon = ref(playArrowIcon);
 const inputText = ref();
 type message = { MessageSender: string; Message: string };
 const messageArr = ref<Array<message>>([]);
@@ -243,9 +245,9 @@ async function Camera() {
 async function pushOrNot() {
   isPush.value = !isPush.value;
   if (isPush.value) {
-    pushIcon.value = '/src/assets/close.svg';
+    pushIcon.value = playArrowIcon;
   } else {
-    pushIcon.value = '/src/assets/play_arrow.svg';
+    pushIcon.value = closeIcon;
   }
   if (isPush.value) {
     await Camera();
