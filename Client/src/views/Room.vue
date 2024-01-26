@@ -245,9 +245,9 @@ async function Camera() {
 async function pushOrNot() {
   isPush.value = !isPush.value;
   if (isPush.value) {
-    pushIcon.value = playArrowIcon;
-  } else {
     pushIcon.value = closeIcon;
+  } else {
+    pushIcon.value = playArrowIcon;
   }
   if (isPush.value) {
     await Camera();
