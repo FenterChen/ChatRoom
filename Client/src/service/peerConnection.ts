@@ -12,8 +12,7 @@ export class PeerConnectionInstance {
   }>;
   remoteVideoHTMLVideoElement?: HTMLVideoElement;
   remoteVideoHTMLCanvasElement?: HTMLCanvasElement;
-  remoteWrap: HTMLDivElement = document.createElement('div');
-  VideoWraps = document.getElementById('RemoteVideos');
+  remoteWrap?: HTMLElement;
   mediaStream = new MediaStream();
   mediaStreamId: string = "";
 
@@ -40,6 +39,12 @@ export class PeerConnectionInstance {
     this.peerConnection = new RTCPeerConnection(configuration);
     this.peerConnection.ontrack = (event) => {
       if (this.mediaStreamId != event.streams[0].id) {
+        this.remoteWrap = document.getElementById(this.remoteUser) ?? undefined;
+        if (this.remoteWrap && this.remoteVideoHTMLVideoElement) {
+          this.remoteWrap.appendChild(this.remoteVideoHTMLVideoElement);
+        } else if (this.remoteWrap && this.remoteVideoHTMLCanvasElement) {
+          this.remoteWrap.appendChild(this.remoteVideoHTMLCanvasElement);
+        }
         this.mediaStreamId = event.streams[0].id
         if (this.mediaStream.getTracks()) {
           this.mediaStream.getTracks().forEach((track) => {
@@ -51,7 +56,6 @@ export class PeerConnectionInstance {
       this.isOntrack = true;
       this.remoteVideoHTMLVideoElement?.play();
       this.isLoading.value = false;
-      this.VideoWraps?.appendChild(this.remoteWrap);
     };
   }
 
@@ -62,26 +66,7 @@ export class PeerConnectionInstance {
     this.remoteVideoHTMLVideoElement.height = 500;
     this.remoteVideoHTMLVideoElement.style.cssText = 'height:90%';
     this.remoteVideoHTMLVideoElement.id = this.remoteUser;
-    const p = document.createElement('p');
-    p.textContent = this.remoteUser;
-    p.classList.add(
-      'text-white',
-      'text-sm',
-      'text-center'
-    )
-    this.remoteWrap.classList.add(
-      'm-4',
-      'border-8',
-      'border-slate-400',
-      'rounded-md',
-      'flex',
-      'flex-col',
-      'justify-center'
-    );
-    this.remoteWrap.style.cssText = 'width:500px;height:500px';
     this.remoteVideoHTMLVideoElement.autoplay = true;
-    this.remoteWrap.appendChild(this.remoteVideoHTMLVideoElement);
-    this.remoteWrap.appendChild(p);
   }
   private useHtmlCanvasElement() {
     this.remoteVideoHTMLVideoElement = document.createElement('video');
@@ -92,26 +77,6 @@ export class PeerConnectionInstance {
     this.remoteVideoHTMLCanvasElement.width = 500;
     this.remoteVideoHTMLCanvasElement.height = 500;
     this.remoteVideoHTMLCanvasElement.id = this.remoteUser;
-    const p = document.createElement('p');
-    p.textContent = this.remoteUser;
-    // p.style.cssText = 'position: absolute; top: 5%; left: 5%;';
-    p.classList.add(
-      'text-white',
-      'text-sm',
-      'text-center'
-    )
-    this.remoteWrap.classList.add(
-      'm-4',
-      'border-8',
-      'border-slate-400',
-      'rounded-md',
-      'flex',
-      'flex-col',
-      'justify-center'
-    );
-    this.remoteWrap.style.cssText = 'width:500px;height:500px';
-    this.remoteWrap.appendChild(this.remoteVideoHTMLCanvasElement);
-    this.remoteWrap.appendChild(p);
 
     let ctx = this.remoteVideoHTMLCanvasElement.getContext('2d');
     const that = this;
@@ -133,8 +98,5 @@ export class PeerConnectionInstance {
   }
   public close() {
     this.peerConnection?.close();
-    if (this.isOntrack) {
-      this.VideoWraps?.removeChild(this.remoteWrap);
-    }
   }
 }

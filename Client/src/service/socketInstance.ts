@@ -1,6 +1,5 @@
 import { Payload } from './model/eventType';
 import { useStore } from '../store';
-import router from '../router';
 import EventBus from './EventBus';
 
 export class SocketInstance extends EventBus {
@@ -55,9 +54,35 @@ export class SocketInstance extends EventBus {
           case 'InitData':
             this.dispatch(Type, Data);
             break;
-          default:
-            while (!store.state.roomIsSubscribe) {
+          case 'NewUser':
+            while (!store.state.roomIsSubscribe && Date.now() - Date.now() < 3000) {
               await new Promise((resolve) => setTimeout(resolve, 16));
+            }
+            if (store.state.roomIsSubscribe == null) {
+              console.error('Failed to get store.state.roomIsSubscribe within the maximum wait time');
+              return;
+            }
+            store.state.Room = Data;
+            this.dispatch(Type, Data);
+            break;
+          case 'UserLeaveFromRoom':
+            while (!store.state.roomIsSubscribe && Date.now() - Date.now() < 3000) {
+              await new Promise((resolve) => setTimeout(resolve, 16));
+            }
+            if (store.state.roomIsSubscribe == null) {
+              console.error('Failed to get store.state.roomIsSubscribe within the maximum wait time');
+              return;
+            }
+            store.state.Room = Data;
+            this.dispatch(Type, Data);
+            break;
+          default:
+            while (!store.state.roomIsSubscribe && Date.now() - Date.now() < 3000) {
+              await new Promise((resolve) => setTimeout(resolve, 16));
+            }
+            if (store.state.roomIsSubscribe == null) {
+              console.error('Failed to get store.state.roomIsSubscribe within the maximum wait time');
+              return;
             }
             this.dispatch(Type, Data);
             break;

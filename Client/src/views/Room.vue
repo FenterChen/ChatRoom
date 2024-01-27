@@ -35,7 +35,6 @@ const constraints = {
 const socketInstance: SocketInstance | undefined = store.state.socketInstance;
 const pcMap = new Map<string, PeerConnectionInstance>();
 const route = useRoute();
-const newUser = ref();
 const user = store.state.user;
 const useCanvas = ref<Boolean>(true);
 const iceServerList = ref();
@@ -65,9 +64,15 @@ function IceServerListFunc(Data: any) {
   iceServerList.value = Data;
 }
 async function OfferFunc(Data: any) {
-  while (iceServerList.value == null) {
+  while (iceServerList.value == null && Date.now() - Date.now() < 3000) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
+
+  if (iceServerList.value == null) {
+    console.error('Failed to get iceServerList.value within the maximum wait time');
+    return;
+  }
+
   if (!pcMap.has(Data.ReqId)) {
     const pc = new PeerConnectionInstance(
       Data.ReqId,
@@ -82,17 +87,29 @@ async function OfferFunc(Data: any) {
   }
 }
 async function AnswerFunc(Data: any) {
-  while (iceServerList.value == null) {
+  while (iceServerList.value == null && Date.now() - Date.now() < 3000) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
+
+  if (iceServerList.value == null) {
+    console.error('Failed to get iceServerList.value within the maximum wait time');
+    return;
+  }
+
   if (pcMap.has(Data.ReqId)) {
     await receiveAnswer(pcMap.get(Data.ReqId)!, Data);
   }
 }
 async function CandidateFunc(Data: any) {
-  while (iceServerList.value == null) {
+  while (iceServerList.value == null && Date.now() - Date.now() < 3000) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
+
+  if (iceServerList.value == null) {
+    console.error('Failed to get iceServerList.value within the maximum wait time');
+    return;
+  }
+
   const existPc = pcMap.get(Data.ReqId);
   existPc?.peerConnection?.addIceCandidate({
     sdpMid: Data.SdpMid,
@@ -101,10 +118,15 @@ async function CandidateFunc(Data: any) {
   });
 }
 async function NewUserFunc(Data: any) {
-  newUser.value = Data;
-  while (iceServerList.value == null) {
+  while (iceServerList.value == null && Date.now() - Date.now() < 3000) {
     await new Promise((resolve) => setTimeout(resolve, 16));
   }
+
+  if (iceServerList.value == null) {
+    console.error('Failed to get iceServerList.value within the maximum wait time');
+    return;
+  }
+
   if (!pcMap.has(Data.NewUser) && isPush.value) {
     await createOffer(Data.NewUser);
   }
@@ -120,7 +142,9 @@ function BroadcastMessageFunc(Data: any) {
 }
 function UserLeaveFromRoomFunc(Data: any) {
   if (pcMap.has(Data.LeaveUser)) {
-    userLeaveFromRoom(pcMap.get(Data.LeaveUser)!, Data);
+    const pc = pcMap.get(Data.LeaveUser)!;
+    pc.close();
+    pcMap.delete(Data.LeaveUser);
   }
 }
 
@@ -251,19 +275,11 @@ async function pushOrNot() {
   }
   if (isPush.value) {
     await Camera();
-    if (newUser.value != null) {
-      newUser.value.UserList.forEach(async (remote: string) => {
-        if (remote != user.id) {
-          await createOffer(remote);
-        }
-      });
-    } else {
-      store.state.Room.UserList.forEach(async (remote: string) => {
-        if (remote != user.id) {
-          await createOffer(remote);
-        }
-      });
-    }
+    store.state.Room.UserList.forEach(async (remote: string) => {
+      if (remote != user.id) {
+        await createOffer(remote);
+      }
+    });
   } else {
     videoStream.value?.getTracks().forEach((track) => {
       track.stop();
@@ -273,10 +289,7 @@ async function pushOrNot() {
   }
 }
 
-function userLeaveFromRoom(pc: PeerConnectionInstance, Data: any) {
-  pc.close();
-  pcMap.delete(Data.LeaveUser);
-}
+
 
 function send() {
   const payload: Payload = {
@@ -394,6 +407,11 @@ onUnmounted(() => {
         </div>
         <div id="RemoteVideos" class="flex justify-center flex-row flex-wrap">
           <loading v-model:active="isLoading" :can-cancel="false" :is-full-page="false" />
+          <div v-for="user in store.state.Room.UserList.filter(u => u !== store.state.user.id)" :id=user
+            class="m-4 border-8 border-slate-400 rounded-md flex flex-col justify-center"
+            style="width:500px ;height:500px">
+            <p class="text-white text-sm text-center">{{ user }}</p>
+          </div>
         </div>
         <div id="MessageWrap" class="fixed z-50 left-0 bottom-0 w-full flex justify-start">
           <div class="rounded-md max-w-one-two bg-slate-600 p-3">
