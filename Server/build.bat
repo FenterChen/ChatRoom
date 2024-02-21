@@ -1,4 +1,4 @@
-set version=v0.0.4
+set version=v0.0.5-dev
 
 docker build -t fenterchen/chatserver:%version% .
 

@@ -28,8 +28,8 @@ namespace SignalingServer.MiddleWare
 
                 if (key == "UserKey" && value != null)
                 {
-                    
-                    if (value== "YYePXAUFQFM4c56f")
+
+                    if (value == "YYePXAUFQFM4c56f")
                     {
                         await _next(context);
                     }
@@ -43,9 +43,13 @@ namespace SignalingServer.MiddleWare
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 }
             }
+            else if (context.Request.Path.StartsWithSegments("/"))
+            {
+                await _next(context);
+            }
             else
             {
-                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
             }
         }
     }
