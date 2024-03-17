@@ -368,6 +368,7 @@ onUnmounted(() => {
   });
   const localVideoWrap = document.getElementById('LocalVideo');
   localVideoWrap?.appendChild(localvideo.value);
+  localvideo.value=null;
   pcMap.clear();
 });
 </script>
