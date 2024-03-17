@@ -19,6 +19,13 @@ namespace Server.Controllers
             _websocketManager = new();
         }
 
+        [HttpGet("/")]
+        public string Home()
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+            return "Hello";
+        }
+
         [HttpGet("/ws")]
         public async Task Get(bool heartbeat)
         {
