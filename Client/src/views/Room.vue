@@ -366,7 +366,8 @@ onUnmounted(() => {
   videoStream.value?.getTracks().forEach((track) => {
     track.stop();
   });
-  localvideo.value=null;
+  const localVideoWrap = document.getElementById('LocalVideo');
+  localVideoWrap?.appendChild(localvideo.value);
   pcMap.clear();
 });
 </script>
