@@ -367,7 +367,7 @@ onUnmounted(() => {
     track.stop();
   });
   const localVideoWrap = document.getElementById('LocalVideo');
-  localVideoWrap?.appendChild(localvideo.value);
+  localVideoWrap?.removeChild(localvideo.value);
   localvideo.value=null;
   pcMap.clear();
 });
