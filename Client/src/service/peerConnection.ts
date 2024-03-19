@@ -66,7 +66,14 @@ export class PeerConnectionInstance {
     this.remoteVideoHTMLVideoElement.height = 500;
     this.remoteVideoHTMLVideoElement.style.cssText = 'height:90%';
     this.remoteVideoHTMLVideoElement.id = this.remoteUser;
+    this.remoteVideoHTMLVideoElement.muted = true;
+    this.remoteVideoHTMLVideoElement.setAttribute("playsinline", "");
+    this.remoteVideoHTMLVideoElement.playsInline = true;
     this.remoteVideoHTMLVideoElement.autoplay = true;
+    const that = this;
+    this.remoteVideoHTMLVideoElement.onplay = () => {
+      that.remoteVideoHTMLVideoElement!.muted = false;
+    }
   }
   private useHtmlCanvasElement() {
     this.remoteVideoHTMLVideoElement = document.createElement('video');

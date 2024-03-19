@@ -257,6 +257,9 @@ async function Camera() {
         'bg-black',
         'border-slate-600'
       )
+      localvideo.value.muted = true;
+      localvideo.value.setAttribute("playsinline", ""); 
+      localvideo.value.playsInline = true; 
       localvideo.value.autoplay = true;
       const localVideoWrap = document.getElementById('LocalVideo');
       localVideoWrap?.appendChild(localvideo.value);
